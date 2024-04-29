@@ -107,7 +107,7 @@ int main(void)
 	  Error_Handler();
   }
 
-  // 3. Set Packet Type
+  // 2. Set Packet Type
   RadioParam[0] = 0x01U;
 
   if (HAL_SUBGHZ_ExecSetCmd(&hsubghz, RADIO_SET_PACKETTYPE, &RadioParam, 1) != HAL_OK)
@@ -116,7 +116,7 @@ int main(void)
   }
 
 
-  // 4. Set Frame Format
+  // 3. Set Frame Format
   RadioParam[0] = 0x00U;
   RadioParam[1] = 0x0CU;
   RadioParam[2] = 0x00U;
@@ -130,7 +130,7 @@ int main(void)
   }
 
 
-  // 5. Define synchronisation word
+  // 4. Define synchronisation word
   RadioParam[0] = 0x14U;
   RadioParam[1] = 0x24U;
 
@@ -140,7 +140,7 @@ int main(void)
   }
 
 
-  // 6. Define RF Frequency
+  // 5. Define RF Frequency
   RadioParam[0] = 0x33U;
   RadioParam[1] = 0xBCU;
   RadioParam[2] = 0xA1U;
@@ -152,7 +152,7 @@ int main(void)
   }
 
 
-  // 9. Set Modulation parameter
+  // 6. Set Modulation parameter
   RadioParam[0] = 0x07U;
   RadioParam[1] = 0x09U;
   RadioParam[2] = 0x01U;
@@ -164,10 +164,14 @@ int main(void)
   }
 
 
-  // Set Rx
+  // 8. Set Rx
+
+  // Timeout 15s
   //RadioParam[0] = 0x0EU;
   //RadioParam[1] = 0xA6U;
   //RadioParam[2] = 0x00U;
+
+  // Timeout disabled
   RadioParam[0] = 0x00U;
   RadioParam[1] = 0x00U;
   RadioParam[2] = 0x00U;
@@ -181,11 +185,11 @@ int main(void)
   HAL_Delay(5000);
 
 
-  // Read Payload
+  // 9. Read Payload
   uint8_t payload[64] = {0};
   uint8_t uart_buff[65] = {0};
 
-  sprintf(uart_buff, "Leer: %i %s \n\r", payload[0], payload);
+  sprintf(uart_buff, "Empty: %i %s \n\r", payload[0], payload);
   HAL_UART_Transmit(&huart1, (uint8_t *)uart_buff, sizeof(uart_buff), 100);
 
   if (HAL_SUBGHZ_ReadBuffer(&hsubghz, 0, &payload, 64) != HAL_OK)
