@@ -14,7 +14,7 @@ Apart from the example code by STM (STMicroelectronics/STM32CubeWL/Projects/NUCL
 
 The code is structured after chapter 4.9.1 from RM0461 and is configured to use a frequency allowed in Europe an otherwise default, easy to use or parameters that increase stability. Details are explained in the chapters describing the code that defines them. 
 
-There is another reference manual: RM0453, which seems to have the same content as RM0461 when it comes to the SUB-GHZ-radio chapter.
+There is another reference manual: RM0453, which seems to have the same content as RM0461 for the STM32WL5x. The SUB-GHZ-radio chapters look like they are the same.
 
 
 
