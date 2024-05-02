@@ -60,8 +60,8 @@ all: main-build
 main-build: WIO-E5-LE-Rx_Bsp.elf secondary-outputs
 
 # Tool invocations
-WIO-E5-LE-Rx_Bsp.elf WIO-E5-LE-Rx_Bsp.map: $(OBJS) $(USER_OBJS) C:\Users\matth\OneDrive\Privat\2_Bastelsachen\Rakete\STM32\ Software\WIO-E5-LE-Rx_Bsp\STM32WLE5JCIX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "WIO-E5-LE-Rx_Bsp.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\matth\OneDrive\Privat\2_Bastelsachen\Rakete\STM32 Software\WIO-E5-LE-Rx_Bsp\STM32WLE5JCIX_FLASH.ld" --specs=nosys.specs -Wl,-Map="WIO-E5-LE-Rx_Bsp.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+WIO-E5-LE-Rx_Bsp.elf WIO-E5-LE-Rx_Bsp.map: $(OBJS) $(USER_OBJS) C:\Users\matth\Documents\GitHub\STM32WLE5_Rx_Example\STM32WLE5JCIX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "WIO-E5-LE-Rx_Bsp.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\matth\Documents\GitHub\STM32WLE5_Rx_Example\STM32WLE5JCIX_FLASH.ld" --specs=nosys.specs -Wl,-Map="WIO-E5-LE-Rx_Bsp.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

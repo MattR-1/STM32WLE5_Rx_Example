@@ -47,7 +47,9 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 
 uint8_t RadioParam[8]  = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
+uint8_t interrupts[3] = {0};
+uint8_t payload[64] = {0};
+uint8_t uart_buff[65] = {0};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -56,7 +58,8 @@ static void MX_GPIO_Init(void);
 static void MX_SUBGHZ_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+void uint8_to_bits(uint8_t num, uint8_t *bits_array);
+void reset_uart_buff(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -97,10 +100,13 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  sprintf(uart_buff, "\n\r\n\rReciever:\n\r");
+  HAL_UART_Transmit(&huart1, (uint8_t *)uart_buff, sizeof(uart_buff), 100);
+  reset_uart_buff();
 
   // 1. Set Buffer Address
-  RadioParam[0] = 0x80U;
-  RadioParam[1] = 0x00U;
+  RadioParam[0] = 0x80U; // Tx base address
+  RadioParam[1] = 0x00U; // Rx base address
 
   if (HAL_SUBGHZ_ExecSetCmd(&hsubghz, RADIO_SET_BUFFERBASEADDRESS, &RadioParam, 2) != HAL_OK)
   {
@@ -108,7 +114,7 @@ int main(void)
   }
 
   // 2. Set Packet Type
-  RadioParam[0] = 0x01U;
+  RadioParam[0] = 0x01U; //LoRa packet type
 
   if (HAL_SUBGHZ_ExecSetCmd(&hsubghz, RADIO_SET_PACKETTYPE, &RadioParam, 1) != HAL_OK)
   {
@@ -117,12 +123,12 @@ int main(void)
 
 
   // 3. Set Frame Format
-  RadioParam[0] = 0x00U;
-  RadioParam[1] = 0x0CU;
-  RadioParam[2] = 0x00U;
-  RadioParam[3] = 0x40U;
-  RadioParam[4] = 0x01U;
-  RadioParam[5] = 0x00U;
+  RadioParam[0] = 0x00U; // PbLength MSB - 12-symbol-long preamble sequence
+  RadioParam[1] = 0x0CU; // PbLength LSB - 12-symbol-long preamble sequence
+  RadioParam[2] = 0x00U; // explicit header type
+  RadioParam[3] = 0x40U; // 64 bit packet length.
+  RadioParam[4] = 0x01U; // CRC enabled
+  RadioParam[5] = 0x00U; // standard IQ setup
 
   if (HAL_SUBGHZ_ExecSetCmd(&hsubghz, RADIO_SET_PACKETPARAMS, &RadioParam, 6) != HAL_OK)
   {
@@ -131,8 +137,8 @@ int main(void)
 
 
   // 4. Define synchronisation word
-  RadioParam[0] = 0x14U;
-  RadioParam[1] = 0x24U;
+  RadioParam[0] = 0x14U; // LoRa private network
+  RadioParam[1] = 0x24U; // LoRa private network
 
   if (HAL_SUBGHZ_WriteRegisters(&hsubghz, (uint16_t) 0x740, &RadioParam, 2) != HAL_OK)
   {
@@ -141,10 +147,10 @@ int main(void)
 
 
   // 5. Define RF Frequency
-  RadioParam[0] = 0x33U;
-  RadioParam[1] = 0xBCU;
-  RadioParam[2] = 0xA1U;
-  RadioParam[3] = 0x00U;
+  RadioParam[0] = 0x33U; //RF frequency - 868000000Hz
+  RadioParam[1] = 0xBCU; //RF frequency - 868000000Hz
+  RadioParam[2] = 0xA1U; //RF frequency - 868000000Hz
+  RadioParam[3] = 0x00U; //RF frequency - 868000000Hz
 
   if (HAL_SUBGHZ_ExecSetCmd(&hsubghz, RADIO_SET_RFFREQUENCY, &RadioParam, 4) != HAL_OK)
   {
@@ -153,15 +159,43 @@ int main(void)
 
 
   // 6. Set Modulation parameter
-  RadioParam[0] = 0x07U;
-  RadioParam[1] = 0x09U;
-  RadioParam[2] = 0x01U;
-  RadioParam[3] = 0x00U;
+  RadioParam[0] = 0x07U; // SF (Spreading factor) - 7 (default)
+  RadioParam[1] = 0x09U; // BW (Bandwidth) - 20.83kHz
+  RadioParam[2] = 0x01U; // CR (Forward error correction coding rate) - 4/5
+  RadioParam[3] = 0x00U; // LDRO (Low data rate optimization) - off
 
   if (HAL_SUBGHZ_ExecSetCmd(&hsubghz, RADIO_SET_MODULATIONPARAMS, &RadioParam, 4) != HAL_OK)
   {
 	  Error_Handler();
   }
+
+
+  // 10. Configure interrupts
+  RadioParam[0] = 0x01U; // IRQ Mask MSB - Timeout interrupt
+  RadioParam[1] = 0x02U; // IRQ Mask LSB - Rx done interrupt
+  RadioParam[2] = 0x00U; // IRQ1 Line Mask MSB
+  RadioParam[3] = 0x03U; // IRQ1 Line Mask LSB - Rx done interrupt on IRQ line 1
+  RadioParam[4] = 0x01U; // IRQ2 Line Mask MSB - Timeout interrupt on IRQ line 2
+  RadioParam[5] = 0x00U; // IRQ2 Line Mask LSB
+  RadioParam[6] = 0x00U; // IRQ3 Line Mask MSB
+  RadioParam[7] = 0x00U; // IRQ3 Line Mask LSB
+
+  if (HAL_SUBGHZ_ExecSetCmd(&hsubghz, RADIO_CFG_DIOIRQ, &RadioParam, 8) != HAL_OK)
+  {
+	  Error_Handler();
+  }
+
+
+  // 10.1 Readout interrupts
+  if (HAL_SUBGHZ_ExecGetCmd(&hsubghz, RADIO_GET_IRQSTATUS, &interrupts, 3) != HAL_OK)
+  {
+	  Error_Handler();
+  }
+
+  sprintf(uart_buff, "Interrupts after set:  %i %i %i \n\r", interrupts[0], interrupts[1], interrupts[2]);
+  HAL_UART_Transmit(&huart1, (uint8_t *)uart_buff, sizeof(uart_buff), 100);
+  reset_uart_buff();
+
 
 
   // 8. Set Rx
@@ -186,12 +220,6 @@ int main(void)
 
 
   // 9. Read Payload
-  uint8_t payload[64] = {0};
-  uint8_t uart_buff[65] = {0};
-
-  sprintf(uart_buff, "Empty: %i %s \n\r", payload[0], payload);
-  HAL_UART_Transmit(&huart1, (uint8_t *)uart_buff, sizeof(uart_buff), 100);
-
   if (HAL_SUBGHZ_ReadBuffer(&hsubghz, 0, &payload, 64) != HAL_OK)
   {
 	  Error_Handler();
@@ -199,11 +227,64 @@ int main(void)
 
 
   // Write Payload to UART
-
-  sprintf(uart_buff, "Test %i %i %i %i %i %i %i %i %s \n\r", payload[0], payload[1], payload[2], payload[3], payload[4], payload[5], payload[6], payload[7], payload);
+  sprintf(uart_buff, "Payload: %s \n\r", payload);
   HAL_UART_Transmit(&huart1, (uint8_t *)uart_buff, sizeof(uart_buff), 100);
+  reset_uart_buff();
 
 
+  //check interrupts
+  uint8_t bits[24] = {0};
+
+
+
+  // print Table header for debugging
+  sprintf(uart_buff, "\n\rReciever interrupts in bits:\n\r");
+  HAL_UART_Transmit(&huart1, (uint8_t *)uart_buff, sizeof(uart_buff), 100);
+  reset_uart_buff();
+
+  for (int i = 0; i < 24; i++)
+  {
+	  sprintf(uart_buff, "%i |", i);
+	  HAL_UART_Transmit(&huart1, (uint8_t *)uart_buff, sizeof(uart_buff), 100);
+	  reset_uart_buff();
+  }
+
+  sprintf(uart_buff, "\n\r");
+  HAL_UART_Transmit(&huart1, (uint8_t *)uart_buff, sizeof(uart_buff), 100);
+  reset_uart_buff();
+
+
+  //readout interrupts and print it into the table
+  do
+  {
+	  if (HAL_SUBGHZ_ExecGetCmd(&hsubghz, RADIO_GET_IRQSTATUS, &interrupts, 3) != HAL_OK)
+	  {
+		  Error_Handler();
+	  }
+
+	  for (int i = 0; i < 3; i++) {
+		  uint8_to_bits(interrupts[i], &bits[i * 8]);
+	  }
+
+	  for (int i = 0; i < 24; i++)
+	  {
+		  if(i < 10)
+		  {
+			  sprintf(uart_buff, "%i |", bits[i]);
+		  } else
+		  {
+			  sprintf(uart_buff, "%i  |", bits[i]);
+		  }
+		  HAL_UART_Transmit(&huart1, (uint8_t *)uart_buff, sizeof(uart_buff), 100);
+		  reset_uart_buff();
+	  }
+
+	  sprintf(uart_buff, "\n\r");
+	  HAL_UART_Transmit(&huart1, (uint8_t *)uart_buff, sizeof(uart_buff), 100);
+	  reset_uart_buff();
+
+	  HAL_Delay(5000);
+  } while (1);
 
 
 
@@ -213,6 +294,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -355,7 +437,20 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void uint8_to_bits(uint8_t num, uint8_t *bits_array) {
+    for (int i = 7; i >= 0; i--) {
+        bits_array[i] = (num >> (7 - i)) & 0x01;
+    }
+}
 
+
+void reset_uart_buff(void)
+{
+	for(int i = 0; i < 100; i++)
+	{
+		uart_buff[i] = 0;
+	}
+}
 /* USER CODE END 4 */
 
 /**

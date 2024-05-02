@@ -12,7 +12,9 @@ Sadly Seeed Studio doesn't supply any example and STMicroelectronics only provid
 
 Apart from the example code by STM (STMicroelectronics/STM32CubeWL/Projects/NUCLEO-WL55JC/Examples/SUBGHZ/SUBGHZ_Tx_Mode) I used documents RM0461 (Reference manual for STM32WLEx) and UM2642 (Description of STM32WL HAL and low-layer drivers).
 
-The code is structured after chapter 4.9.1 from RM0461 and is configured to use a frequency allowed in Europ an otherwise default, easy to use or parameters that increase stability. Details are explained in the chapters describing the code that defines them. 
+The code is structured after chapter 4.9.1 from RM0461 and is configured to use a frequency allowed in Europe an otherwise default, easy to use or parameters that increase stability. Details are explained in the chapters describing the code that defines them. 
+
+There is another reference manual: RM0453, which seems to have the same content as RM0461 when it comes to the SUB-GHZ-radio chapter.
 
 
 
@@ -288,7 +290,7 @@ bytes 4:1     bits 31:0     RfFreq[31:0]: RF frequency
 
 
 
-I'm assuming the RF frequency is the carrier frequency. But it could be that the RF-PLL frequency is the carrier frequency. I want the carrier frequency to be 868000000 Hz (868MHz), since my aplication has to be legal in Europ. In hex that would be: 0x33BCA100, which is split up into four bytes.
+I'm assuming the RF frequency is the carrier frequency. But it could be that the RF-PLL frequency is the carrier frequency. I want the carrier frequency to be 868000000 Hz (868MHz), since my aplication has to be legal in Europe. In hex that would be: 0x33BCA100, which is split up into four bytes.
 
 #### parameter bytes
 
@@ -387,9 +389,69 @@ byte 4: LDRO (Low data rate optimization) This would help at high BW and low SF.
 
 
 
-### 7. Set interrupts
+### 7. Interrupts configuration
 
-For the moment this was skipped, since I have no idea how to use them anyway.
+#### code
+
+RadioParam[0] = 0x01U;
+RadioParam[1] = 0x02U;
+RadioParam[2] = 0x00U;
+RadioParam[3] = 0x02U;
+RadioParam[4] = 0x01U;
+RadioParam[5] = 0x00U;
+RadioParam[6] = 0x00U;
+RadioParam[7] = 0x00U;
+
+if (HAL_SUBGHZ_ExecSetCmd(&hsubghz, RADIO_CFG_DIOIRQ, &RadioParam, 8) != HAL_OK)
+{
+	Error_Handler();
+}
+
+#### explanation
+
+**Cfg_DioIrq() command**
+Cfg_DioIrq(IrqMask, Irq1Mask, Irq2Mask, Irq3Mask) allows interrupts to be
+masked and mapped on the IRQ lines.
+
+byte 0 		bits 7:0 		Opcode: 0x08
+bytes 2:1 	   bits 15:0 	      IrqMask[15:0]: Global interrupt enable
+							  See Table 29 for interrupt bit map definition. For each bit:
+								0: IRQ disabled
+								1: IRQ enabled
+bytes 4:3 	   bits 15:0 	      Irq1Mask[15:0]: IRQ1 line Interrupt enable
+								0: interrupt on IRQ1 line disable
+								1: interrupt on IRQ1 line enabled
+bytes 6:5 	   bits 15:0 	      Irq2Mask[15:0]: IRQ2 line Interrupt enable
+								0: interrupt on IRQ2 line disable
+								1: interrupt on IRQ2 line enabled
+bytes 8:7 	   bits 15:0 	      Irq3Mask[15:0]: IRQ3 line Interrupt enable
+								0: interrupt on IRQ3 line disable
+								1: interrupt on IRQ3 line enabled
+
+I am very unsure about the way this works. The way I understood this is: bytes 1 and 2 activate the interrupts in general and bytes 3 to 8 map them onto an interrupt line. There are three lines. If four or more interrupts are needed, some interrupts have to share a line. 
+
+I imagine, there are hardware limits on how many interrupt lines there are. I don't quite understand, why this is important to me since the status of the interrupts is read back in one message. Mabey one interrupt activates the whole line and if there are multiple interrupts mapped to one line you can't tell which one fired, but this is just a guess.
+
+The only two things I want to know in this example is whether the transmission was successful or if it timed out. So using Table 29 in RM0461 Bit 1 (RxDone) and Bit 9 (Timeout) are activated. After that the RxDone interrupt is mapped to line 1 and the Timeout interrupt is mapped to line 2. Line 3 remains deactivated.
+
+
+#### parameter bytes
+
+
+| byte | hex  | bin        | notes              |
+| ---- | ---- | ---------- | ------------------ |
+| 1    | 0x01 | 0b00000001 | IRQ Mask MSB       |
+| 2    | 0x02 | 0b00000010 | IRQ Mask LSB       |
+| 3    | 0x00 | 0b00000000 | IRQ1 Line Mask MSB |
+| 4    | 0x02 | 0b00000010 | IRQ1 Line Mask LSB |
+| 5    | 0x01 | 0b00000001 | IRQ2 Line Mask MSB |
+| 6    | 0x00 | 0b00000000 | IRQ2 Line Mask LSB |
+| 7    | 0x00 | 0b00000000 | IRQ3 Line Mask MSB |
+| 8    | 0x00 | 0b00000000 | IRQ3 Line Mask LSB |
+
+
+
+
 
 
 
